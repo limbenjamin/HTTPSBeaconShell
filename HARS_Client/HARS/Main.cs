@@ -174,16 +174,7 @@ namespace HARS
 
         private void Main_Load(object sender, EventArgs e)
         {
-            // Show fake error message
-            if (Config.DisplayErrorMsg)
-            {
-                var thread = new Thread(
-                    () =>
-                    {
-                        MessageBox.Show(Config.ErrorMsgDesc, Config.ErrorMsgTitle, MessageBoxButtons.OKCancel, MessageBoxIcon.Error);
-                    });
-                thread.Start();
-            }
+
             // Initialise connection to server
             if (!Init())
             {
