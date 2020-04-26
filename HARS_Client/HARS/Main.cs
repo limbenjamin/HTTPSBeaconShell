@@ -23,7 +23,7 @@ namespace HARS
     public partial class Main : Form
     {
         // Global
-        ProcessStartInfo startInfo = new ProcessStartInfo("powershell.exe");
+        ProcessStartInfo startInfo = new ProcessStartInfo("cmd.exe");
         Process readProcess = new Process();
         string cmd = "";
         string reply = "";
@@ -47,7 +47,7 @@ namespace HARS
             startInfo.WindowStyle = ProcessWindowStyle.Hidden;
             startInfo.CreateNoWindow = true;
             startInfo.UseShellExecute = false;
-            startInfo.StandardOutputEncoding = Encoding.GetEncoding(850);
+            startInfo.StandardOutputEncoding = Encoding.GetEncoding(437);
             readProcess.StartInfo = startInfo;
             readProcess.OutputDataReceived += new DataReceivedEventHandler(IO.readProcess_OutputDataReceived);
             readProcess.ErrorDataReceived += new DataReceivedEventHandler(IO.readProcess_ErrorDataReceived);
@@ -73,7 +73,7 @@ namespace HARS
             IO.stdout = "";
             IO.stderr = "";
             IO.firstline = true;
-            readProcess.StandardInput.WriteLine(cmd + " ; echo END_FLAG");
+            readProcess.StandardInput.WriteLine(cmd + " & echo END_FLAG");
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -186,10 +186,10 @@ namespace HARS
                             Environment.Exit(0);
                         }
                         Exec(cmd);
-                        while (!IO.stderr.Contains("END_FLAG") && !IO.stdout.Contains("END_FLAG"))
-                        {
+                        //while (!IO.stderr.Contains("END_FLAG") && !IO.stdout.Contains("END_FLAG"))
+                        //{
                             Thread.Sleep(100);
-                        }
+                        //}
                         if (IO.stderr.Length > 2)
                         {
                             reply = IO.stderr;
@@ -206,7 +206,7 @@ namespace HARS
                             }
                             reply = IO.stdout;
                         }
-                        reply = reply.Replace("  ; echo END_FLAG", "");
+                        //reply = reply.Replace("  & echo END_FLAG", "");
                         ReplyCmd();
                         IO.stdout = "";
                         IO.stderr = "";
