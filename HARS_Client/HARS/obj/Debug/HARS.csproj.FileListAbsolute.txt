@@ -7,7 +7,3 @@ C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\obj\Debug\HARS.Proper
 C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\obj\Debug\HARS.csproj.GenerateResource.Cache
 C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\obj\Debug\HARS.exe
 C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\obj\Debug\HARS.pdb
-C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\bin\Debug\BrotliSharpLib.dll
-C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\bin\Debug\System.Runtime.CompilerServices.Unsafe.dll
-C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\bin\Debug\BrotliSharpLib.xml
-C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\bin\Debug\System.Runtime.CompilerServices.Unsafe.xml

