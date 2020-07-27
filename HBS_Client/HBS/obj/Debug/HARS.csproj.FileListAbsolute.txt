@@ -1,9 +1,0 @@
-C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\bin\Debug\HARS.exe.config
-C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\bin\Debug\HARS.exe
-C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\bin\Debug\HARS.pdb
-C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\obj\Debug\HARS.csprojResolveAssemblyReference.cache
-C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\obj\Debug\HARS.Main.resources
-C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\obj\Debug\HARS.Properties.Resources.resources
-C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\obj\Debug\HARS.csproj.GenerateResource.Cache
-C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\obj\Debug\HARS.exe
-C:\github\Http-Asynchronous-Reverse-Shell\HARS_Client\HARS\obj\Debug\HARS.pdb

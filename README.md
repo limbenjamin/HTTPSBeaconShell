@@ -27,3 +27,7 @@ FILEU C:\file.exe       - Upload C:\file.exe to current directory as file.dat
 ACTIVE                  - Active mode, shorter beaconing delay
 INACTIVE                - Inactive mode, longer beaconing delay.
 ```
+
+Screenshot
+--------------
+![image](https://raw.githubusercontent.com/limbenjamin/HTTPSBeaconShell/master/Images/screenshot.png)
