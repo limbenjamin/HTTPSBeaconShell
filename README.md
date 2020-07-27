@@ -15,7 +15,7 @@ Main Features
 Commands
 -------------
 ```
-For configuration parameters, check out Config.cs for client and HARS_Server.py for server.
+For configuration parameters, check out Config.cs for client and HBS_Server.py for server.
 
 
 STARTSH                 - Start shell process. We don't want cmd.exe running in the background all the time.
